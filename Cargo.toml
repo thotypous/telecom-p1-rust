@@ -7,8 +7,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.82"
+clap = { version = "4.5.4", features = ["derive"] }
 cpal = "0.15.3"
-#[target.'cfg(windows)'.dependencies]
+
+[target.'cfg(windows)'.dependencies]
 serialport = { version = "4.3.0", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
