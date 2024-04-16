@@ -1,12 +1,6 @@
 use anyhow;
 use clap::Parser;
-use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
-    FromSample,
-    Sample,
-    SizedSample,
-    StreamConfig, //SupportedStreamConfig,
-};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::Mutex;
 use std::{f32::consts::PI, sync::Arc};
 
@@ -42,11 +36,11 @@ fn main() -> anyhow::Result<()> {
 
     let host = cpal::default_host();
 
-    let rxdev = if opt.txdev == "default" {
+    let rxdev = if opt.rxdev == "default" {
         host.default_input_device()
     } else {
-        host.output_devices()?
-            .find(|x| x.name().map(|y| y == opt.txdev).unwrap_or(false))
+        host.input_devices()?
+            .find(|x| x.name().map(|y| y == opt.rxdev).unwrap_or(false))
     }
     .expect("failed to find RX device");
     let rxcfg = rxdev.default_input_config().unwrap();
