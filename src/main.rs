@@ -1,9 +1,13 @@
+use std::sync::Mutex;
+
 use anyhow;
 use clap::Parser;
 
 #[cfg_attr(unix, path = "serial_linux.rs")]
 #[cfg_attr(windows, path = "serial_windows.rs")]
 mod serial;
+
+mod uart;
 
 #[derive(Parser, Debug)]
 #[command(version, about = "Dial-up modem", long_about = None)]
@@ -23,7 +27,8 @@ struct Opt {
 
 fn main() -> anyhow::Result<()> {
     let opt = Opt::parse();
-    let mut serial = serial::Serial::open(&opt.serdev, Box::new(|b| println!("received {}", b)))?;
+    let uart_tx = Mutex::new(uart::UartTx::new(160));
+    let mut serial = serial::Serial::open(&opt.serdev, Box::new(|b| uart_tx.lock().unwrap().put_byte(b)))?;
     serial.event_loop()?;
     Ok(())
 }

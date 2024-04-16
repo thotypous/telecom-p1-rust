@@ -2,13 +2,13 @@ use anyhow;
 use nix;
 use std::os::fd::{AsRawFd, OwnedFd};
 
-pub struct Serial {
-    rx: Box<dyn FnMut(u8)>,
+pub struct Serial<'a> {
+    rx: Box<dyn FnMut(u8) + 'a>,
     pty: OwnedFd,
 }
 
-impl Serial {
-    pub fn open(_options: &str, rx: Box<dyn FnMut(u8)>) -> anyhow::Result<Self> {
+impl<'a> Serial<'a> {
+    pub fn open(_options: &str, rx: Box<dyn FnMut(u8) + 'a>) -> anyhow::Result<Self> {
         let res = nix::pty::openpty(None, None)?;
         let pty = res.master;
 
@@ -20,7 +20,7 @@ impl Serial {
         let pty_name = nix::unistd::ttyname(&res.slave)?;
         eprintln!("criado porto serial em {}", pty_name.to_string_lossy());
 
-        Ok(Serial { rx, pty })
+        Ok(Self { rx, pty })
     }
 
     pub fn write(&mut self, byte: u8) -> anyhow::Result<()> {

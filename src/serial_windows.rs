@@ -1,15 +1,15 @@
 use anyhow;
 use serialport;
 
-pub struct Serial {
-    rx: Box<dyn FnMut(u8)>,
+pub struct Serial<'a> {
+    rx: Box<dyn FnMut(u8) + 'a>,
     port: Box<dyn serialport::SerialPort>,
 }
 
-impl Serial {
-    pub fn open(options: &str, rx: Box<dyn FnMut(u8)>) -> anyhow::Result<Self> {
+impl<'a> Serial<'a> {
+    pub fn open(options: &str, rx: Box<dyn FnMut(u8) + 'a>) -> anyhow::Result<Self> {
         let port = serialport::new(options, 115_200).open()?;
-        Ok(Serial { rx, port })
+        Ok(Self { rx, port })
     }
 
     pub fn write(&mut self, byte: u8) -> anyhow::Result<()> {
