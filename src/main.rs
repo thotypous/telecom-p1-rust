@@ -11,6 +11,8 @@ mod serial;
 mod uart;
 mod v21;
 
+const BAUD_RATE: u32 = 300;
+
 #[derive(Parser, Debug)]
 #[command(version, about = "Dial-up modem", long_about = None)]
 struct Opt {
@@ -72,36 +74,42 @@ fn main() -> anyhow::Result<()> {
         )
     };
 
-    let baudrate = 300;
-    let uart_tx = Arc::new(Mutex::new(uart::UartTx::new(
-        txcfg.sample_rate().0 / baudrate,
-    )));
-    let uart_tx_ = uart_tx.clone();
-    let mut serial = serial::Serial::open(
-        &opt.serdev,
-        Box::new(move |b| uart_tx_.lock().unwrap().put_byte(b)),
-    )?;
-    let txch = txcfg.channels() as usize;
-    let mut v21_tx = v21::V21TX::new(
-        1. / txcfg.sample_rate().0 as f32,
-        txch,
-        tx_omega1,
-        tx_omega0,
+    let tx_srate = txcfg.sample_rate().0;
+    assert!(
+        tx_srate % BAUD_RATE == 0,
+        "TX sampling rate {} is not a multiple of the baud rate {}",
+        tx_srate,
+        BAUD_RATE
     );
+    let tx_samples_per_symbol = txcfg.sample_rate().0 / BAUD_RATE;
+    let tx_speriod = 1. / tx_srate as f32;
+
+    let uart_tx = Arc::new(Mutex::new(uart::UartTx::new(tx_samples_per_symbol)));
+    let mut serial = {
+        let uart_tx = uart_tx.clone();
+        serial::Serial::open(
+            &opt.serdev,
+            Box::new(move |b| uart_tx.lock().unwrap().put_byte(b)),
+        )?
+    };
+    let txch = txcfg.channels() as usize;
+    let mut v21_tx = v21::V21TX::new(tx_speriod, txch, tx_omega1, tx_omega0);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 
-    let uart_tx_ = uart_tx.clone();
-    let txstream = txdev.build_output_stream(
-        &txcfg.into(),
-        move |audio_out: &mut [f32], _: &cpal::OutputCallbackInfo| {
-            let mut uart_out = vec![1; audio_out.len() / txch];
-            uart_tx_.lock().unwrap().get_samples(&mut uart_out);
-            v21_tx.modulate(&uart_out, audio_out)
-        },
-        err_fn,
-        None,
-    )?;
+    let txstream = {
+        let uart_tx = uart_tx.clone();
+        txdev.build_output_stream(
+            &txcfg.into(),
+            move |audio_out: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                let mut uart_out = vec![1; audio_out.len() / txch];
+                uart_tx.lock().unwrap().get_samples(&mut uart_out);
+                v21_tx.modulate(&uart_out, audio_out)
+            },
+            err_fn,
+            None,
+        )?
+    };
     txstream.play()?;
 
     serial.event_loop()?;
