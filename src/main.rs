@@ -59,7 +59,7 @@ fn main() -> anyhow::Result<()> {
             .find(|x| x.name().map(|y| y == opt.txdev).unwrap_or(false))
     }
     .expect("failed to find TX device");
-    let txcfg = rxdev.default_output_config().unwrap();
+    let txcfg = txdev.default_output_config().unwrap();
     eprintln!("TX device: {}, config: {:?}", txdev.name()?, txcfg);
 
     let (tx_omega0, tx_omega1, rx_omega0, rx_omega1) = if opt.answer {
@@ -88,7 +88,12 @@ fn main() -> anyhow::Result<()> {
         Box::new(move |b| uart_tx_.lock().unwrap().put_byte(b)),
     )?;
     let txch = txcfg.channels() as usize;
-    let mut v21_tx = v21::V21TX::new(1. / txcfg.sample_rate().0 as f32, txch, tx_omega1, tx_omega0);
+    let mut v21_tx = v21::V21TX::new(
+        1. / txcfg.sample_rate().0 as f32,
+        txch,
+        tx_omega1,
+        tx_omega0,
+    );
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 
