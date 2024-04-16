@@ -83,6 +83,7 @@ fn main() -> anyhow::Result<()> {
     );
     let tx_samples_per_symbol = txcfg.sample_rate().0 / BAUD_RATE;
     let tx_speriod = 1. / tx_srate as f32;
+    let tx_channels = txcfg.channels() as usize;
 
     let uart_tx = Arc::new(Mutex::new(uart::UartTx::new(tx_samples_per_symbol)));
     let mut serial = {
@@ -92,8 +93,7 @@ fn main() -> anyhow::Result<()> {
             Box::new(move |b| uart_tx.lock().unwrap().put_byte(b)),
         )?
     };
-    let txch = txcfg.channels() as usize;
-    let mut v21_tx = v21::V21TX::new(tx_speriod, txch, tx_omega1, tx_omega0);
+    let mut v21_tx = v21::V21TX::new(tx_speriod, tx_omega1, tx_omega0);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 
@@ -102,9 +102,16 @@ fn main() -> anyhow::Result<()> {
         txdev.build_output_stream(
             &txcfg.into(),
             move |audio_out: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                let mut uart_out = vec![1; audio_out.len() / txch];
+                let bufsize = audio_out.len() / tx_channels;
+                let mut uart_out = vec![1; bufsize];
                 uart_tx.lock().unwrap().get_samples(&mut uart_out);
-                v21_tx.modulate(&uart_out, audio_out)
+                let mut v21_out = vec![0.; bufsize];
+                v21_tx.modulate(&uart_out, &mut v21_out);
+                for (frame, sample) in audio_out.chunks_mut(tx_channels).zip(v21_out.iter()) {
+                    for dest in frame.iter_mut() {
+                        *dest = *sample; 
+                    }
+                }
             },
             err_fn,
             None,
