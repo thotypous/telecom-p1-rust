@@ -1,4 +1,21 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::mpsc::Sender};
+
+pub struct UartRx {
+    // TODO: coloque outros atributos que você precisar aqui
+    to_pty: Sender<u8>,
+}
+
+impl UartRx {
+    pub fn new(to_pty: Sender<u8>) -> Self {
+        // TODO: inicialize seus novos atributos abaixo
+        UartRx { to_pty }
+    }
+
+    pub fn put_samples(&mut self, buffer: &[u8]) {
+        // TODO: seu código aqui
+        self.to_pty.send(65).unwrap();
+    }
+}
 
 pub struct UartTx {
     samples_per_symbol: u32,

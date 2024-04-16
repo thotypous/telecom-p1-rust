@@ -4,16 +4,18 @@ mod serial;
 mod uart;
 mod v21;
 
+use crate::serial::Serial;
+use crate::uart::{UartRx, UartTx};
+use crate::v21::{V21RX, V21TX};
 use anyhow;
 use clap::Parser;
 use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait}, BuildStreamError, FromSample, SizedSample, Stream
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    BuildStreamError, FromSample, SizedSample, Stream,
 };
-use serial::Serial;
+use std::sync::mpsc::channel;
 use std::sync::Mutex;
 use std::{f32::consts::PI, sync::Arc};
-use uart::UartTx;
-use v21::V21TX;
 
 const BAUD_RATE: u32 = 300;
 
@@ -85,18 +87,24 @@ fn main() -> anyhow::Result<()> {
         tx_srate,
         BAUD_RATE
     );
-    let tx_samples_per_symbol = txcfg.sample_rate().0 / BAUD_RATE;
+    let tx_samples_per_symbol = tx_srate / BAUD_RATE;
     let tx_speriod = 1. / tx_srate as f32;
 
+    let (pty_to_uart_tx, uart_tx_from_pty) = channel();
+    let (uart_rx_to_pty, pty_from_uart_rx) = channel();
+    let serial = Serial::open(&opt.serdev, pty_from_uart_rx, pty_to_uart_tx)?;
+
     let uart_tx = Arc::new(Mutex::new(UartTx::new(tx_samples_per_symbol)));
-    let mut serial = {
-        let uart_tx = uart_tx.clone();
-        Serial::open(
-            &opt.serdev,
-            Box::new(move |b| uart_tx.lock().unwrap().put_byte(b)),
-        )?
-    };
     let v21_tx = V21TX::new(tx_speriod, tx_omega1, tx_omega0);
+
+    {
+        let uart_tx = uart_tx.clone();
+        std::thread::spawn(move || loop {
+            let b = uart_tx_from_pty.recv().unwrap();
+            uart_tx.lock().unwrap().put_byte(b);
+        });
+    }
+
     let tx_stream = match txcfg.sample_format() {
         cpal::SampleFormat::I8 => tx_run::<i8>(&txdev, &txcfg.into(), uart_tx, v21_tx),
         cpal::SampleFormat::I16 => tx_run::<i16>(&txdev, &txcfg.into(), uart_tx, v21_tx),
@@ -111,7 +119,34 @@ fn main() -> anyhow::Result<()> {
         sample_format => panic!("TX: Unsupported sample format '{sample_format}'"),
     }?;
 
+    let rx_srate = rxcfg.sample_rate().0;
+    assert!(
+        rx_srate % BAUD_RATE == 0,
+        "RX sampling rate {} is not a multiple of the baud rate {}",
+        rx_srate,
+        BAUD_RATE
+    );
+    let rx_samples_per_symbol = rx_srate / BAUD_RATE;
+    let rx_speriod = 1. / rx_srate as f32;
+
+    let uart_rx = UartRx::new(uart_rx_to_pty);
+    let v21_rx = V21RX::new(rx_speriod, rx_samples_per_symbol, rx_omega1, rx_omega0);
+    let rx_stream = match rxcfg.sample_format() {
+        cpal::SampleFormat::I8 => rx_run::<i8>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::I16 => rx_run::<i16>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::I32 => rx_run::<i32>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::I64 => rx_run::<i64>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::U8 => rx_run::<u8>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::U16 => rx_run::<u16>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::U32 => rx_run::<u32>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::U64 => rx_run::<u64>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::F32 => rx_run::<f32>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        cpal::SampleFormat::F64 => rx_run::<f64>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),
+        sample_format => panic!("RX: Unsupported sample format '{sample_format}'"),
+    }?;
+
     tx_stream.play()?;
+    rx_stream.play()?;
     serial.event_loop()
 }
 
@@ -143,6 +178,44 @@ where
                     *dest = T::from_sample(*sample);
                 }
             }
+        },
+        err_fn,
+        None,
+    )
+}
+
+pub fn rx_run<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    mut uart_rx: UartRx,
+    mut v21_rx: V21RX,
+) -> Result<Stream, BuildStreamError>
+where
+    T: SizedSample,
+    f32: FromSample<T>,
+{
+    let channels = config.channels as usize;
+
+    let err_fn = |err| eprintln!("RX stream error: {}", err);
+
+    device.build_input_stream(
+        config,
+        move |audio_in: &[T], _: &cpal::InputCallbackInfo| {
+            let bufsize = audio_in.len() / channels;
+            let mut v21_in = vec![0.; bufsize];
+            for (frame, dest) in audio_in.chunks(channels).zip(v21_in.iter_mut()) {
+                // aqui calculmos a média, mas talvez fosse melhor pegar só o primeiro canal?
+                let mut mean = 0.;
+                for sample in frame.iter() {
+                    mean += sample.to_sample::<f32>() / channels as f32;
+                }
+                *dest = mean;
+            }
+
+            let mut uart_in = vec![1; bufsize];
+            v21_rx.demodulate(&v21_in, &mut uart_in);
+
+            uart_rx.put_samples(&uart_in);
         },
         err_fn,
         None,

@@ -1,5 +1,34 @@
 use std::{f32::consts::PI, ops::Rem};
 
+pub struct V21RX {
+    // TODO: coloque outros atributos que você precisar aqui
+    sampling_period: f32,
+    samples_per_symbol: u32,
+    omega_mark: f32,
+    omega_space: f32,
+}
+
+impl V21RX {
+    pub fn new(
+        sampling_period: f32,
+        samples_per_symbol: u32,
+        omega_mark: f32,
+        omega_space: f32,
+    ) -> Self {
+        // TODO: inicialize seus novos atributos abaixo
+        Self {
+            sampling_period,
+            samples_per_symbol,
+            omega_mark,
+            omega_space,
+        }
+    }
+
+    pub fn demodulate(&mut self, in_samples: &[f32], out_samples: &mut [u8]) {
+        // TODO: seu código aqui
+    }
+}
+
 pub struct V21TX {
     sampling_period: f32,
     omega_mark: f32,
