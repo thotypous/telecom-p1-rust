@@ -1,15 +1,19 @@
-use anyhow;
-use clap::Parser;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use std::sync::Mutex;
-use std::{f32::consts::PI, sync::Arc};
-
 #[cfg_attr(unix, path = "serial_linux.rs")]
 #[cfg_attr(windows, path = "serial_windows.rs")]
 mod serial;
-
 mod uart;
 mod v21;
+
+use anyhow;
+use clap::Parser;
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait}, BuildStreamError, FromSample, SizedSample, Stream
+};
+use serial::Serial;
+use std::sync::Mutex;
+use std::{f32::consts::PI, sync::Arc};
+use uart::UartTx;
+use v21::V21TX;
 
 const BAUD_RATE: u32 = 300;
 
@@ -83,43 +87,64 @@ fn main() -> anyhow::Result<()> {
     );
     let tx_samples_per_symbol = txcfg.sample_rate().0 / BAUD_RATE;
     let tx_speriod = 1. / tx_srate as f32;
-    let tx_channels = txcfg.channels() as usize;
 
-    let uart_tx = Arc::new(Mutex::new(uart::UartTx::new(tx_samples_per_symbol)));
+    let uart_tx = Arc::new(Mutex::new(UartTx::new(tx_samples_per_symbol)));
     let mut serial = {
         let uart_tx = uart_tx.clone();
-        serial::Serial::open(
+        Serial::open(
             &opt.serdev,
             Box::new(move |b| uart_tx.lock().unwrap().put_byte(b)),
         )?
     };
-    let mut v21_tx = v21::V21TX::new(tx_speriod, tx_omega1, tx_omega0);
+    let v21_tx = V21TX::new(tx_speriod, tx_omega1, tx_omega0);
+    let tx_stream = match txcfg.sample_format() {
+        cpal::SampleFormat::I8 => tx_run::<i8>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::I16 => tx_run::<i16>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::I32 => tx_run::<i32>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::I64 => tx_run::<i64>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::U8 => tx_run::<u8>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::U16 => tx_run::<u16>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::U32 => tx_run::<u32>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::U64 => tx_run::<u64>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::F32 => tx_run::<f32>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        cpal::SampleFormat::F64 => tx_run::<f64>(&txdev, &txcfg.into(), uart_tx, v21_tx),
+        sample_format => panic!("TX: Unsupported sample format '{sample_format}'"),
+    }?;
 
-    let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+    tx_stream.play()?;
+    serial.event_loop()
+}
 
-    let txstream = {
-        let uart_tx = uart_tx.clone();
-        txdev.build_output_stream(
-            &txcfg.into(),
-            move |audio_out: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                let bufsize = audio_out.len() / tx_channels;
-                let mut uart_out = vec![1; bufsize];
-                uart_tx.lock().unwrap().get_samples(&mut uart_out);
-                let mut v21_out = vec![0.; bufsize];
-                v21_tx.modulate(&uart_out, &mut v21_out);
-                for (frame, sample) in audio_out.chunks_mut(tx_channels).zip(v21_out.iter()) {
-                    for dest in frame.iter_mut() {
-                        *dest = *sample; 
-                    }
+pub fn tx_run<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    uart_tx: Arc<Mutex<UartTx>>,
+    mut v21_tx: V21TX,
+) -> Result<Stream, BuildStreamError>
+where
+    T: SizedSample + FromSample<f32>,
+{
+    let channels = config.channels as usize;
+
+    let err_fn = |err| eprintln!("TX stream error: {}", err);
+
+    device.build_output_stream(
+        config,
+        move |audio_out: &mut [T], _: &cpal::OutputCallbackInfo| {
+            let bufsize = audio_out.len() / channels;
+            let mut uart_out = vec![1; bufsize];
+            uart_tx.lock().unwrap().get_samples(&mut uart_out);
+
+            let mut v21_out = vec![0.; bufsize];
+            v21_tx.modulate(&uart_out, &mut v21_out);
+
+            for (frame, sample) in audio_out.chunks_mut(channels).zip(v21_out.iter()) {
+                for dest in frame.iter_mut() {
+                    *dest = T::from_sample(*sample);
                 }
-            },
-            err_fn,
-            None,
-        )?
-    };
-    txstream.play()?;
-
-    serial.event_loop()?;
-
-    Ok(())
+            }
+        },
+        err_fn,
+        None,
+    )
 }
