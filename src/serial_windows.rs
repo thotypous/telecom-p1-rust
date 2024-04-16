@@ -1,20 +1,27 @@
 use anyhow;
 use serialport;
+use std::sync::mpsc::{Receiver, Sender};
 
 pub struct Serial {
-    rx: Box<dyn FnMut(u8)>,
+    to_uart: Sender<u8>,
     port: Box<dyn serialport::SerialPort>,
 }
 
 impl Serial {
-    pub fn open(options: &str, rx: Box<dyn FnMut(u8)>) -> anyhow::Result<Self> {
+    pub fn open(
+        options: &str,
+        from_uart: Receiver<u8>,
+        to_uart: Sender<u8>,
+    ) -> anyhow::Result<Self> {
         let port = serialport::new(options, 115_200).open()?;
-        Ok(Self { rx, port })
-    }
-
-    pub fn write(&mut self, byte: u8) -> anyhow::Result<()> {
-        self.port.write(&[byte])?;
-        Ok(())
+        {
+            let mut port = port.try_clone().unwrap();
+            std::thread::spawn(move || loop {
+                let b = from_uart.recv().unwrap();
+                port.write(&[b]).unwrap();
+            });
+        }
+        Ok(Self { to_uart, port })
     }
 
     pub fn event_loop(&mut self) -> anyhow::Result<()> {
@@ -22,7 +29,7 @@ impl Serial {
             let mut buf: [u8; 1] = [0];
             let amount = self.port.read(&mut buf)?;
             if amount == 1 {
-                (&mut self.rx)(buf[0]);
+                self.to_uart.send(buf[0]).unwrap();
             }
         }
     }

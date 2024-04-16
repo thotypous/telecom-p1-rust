@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
 
     let (pty_to_uart_tx, uart_tx_from_pty) = channel();
     let (uart_rx_to_pty, pty_from_uart_rx) = channel();
-    let serial = Serial::open(&opt.serdev, pty_from_uart_rx, pty_to_uart_tx)?;
+    let mut serial = Serial::open(&opt.serdev, pty_from_uart_rx, pty_to_uart_tx)?;
 
     let uart_tx = Arc::new(Mutex::new(UartTx::new(tx_samples_per_symbol)));
     let v21_tx = V21TX::new(tx_speriod, tx_omega1, tx_omega0);

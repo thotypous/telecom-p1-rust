@@ -1,6 +1,9 @@
 use anyhow;
 use nix;
-use std::{os::fd::{AsRawFd, OwnedFd}, sync::mpsc::{Receiver, Sender}};
+use std::{
+    os::fd::{AsRawFd, OwnedFd},
+    sync::mpsc::{Receiver, Sender},
+};
 
 pub struct Serial {
     to_uart: Sender<u8>,
@@ -8,7 +11,11 @@ pub struct Serial {
 }
 
 impl Serial {
-    pub fn open(_options: &str, from_uart: Receiver<u8>, to_uart: Sender<u8>) -> anyhow::Result<Self> {
+    pub fn open(
+        _options: &str,
+        from_uart: Receiver<u8>,
+        to_uart: Sender<u8>,
+    ) -> anyhow::Result<Self> {
         let res = nix::pty::openpty(None, None)?;
         let pty = res.master;
 
@@ -19,21 +26,19 @@ impl Serial {
 
         let pty_name = nix::unistd::ttyname(&res.slave)?;
         eprintln!("criado porto serial em {}", pty_name.to_string_lossy());
-        
+
         {
             let pty = pty.try_clone().unwrap();
-            std::thread::spawn(move || {
-                loop {
-                    let b = from_uart.recv().unwrap();
-                    nix::unistd::write(&pty, &[b]).unwrap();
-                }
+            std::thread::spawn(move || loop {
+                let b = from_uart.recv().unwrap();
+                nix::unistd::write(&pty, &[b]).unwrap();
             });
         }
 
         Ok(Self { to_uart, pty })
     }
 
-    pub fn event_loop(&self) -> anyhow::Result<()> {
+    pub fn event_loop(&mut self) -> anyhow::Result<()> {
         loop {
             let mut buf: [u8; 1] = [0];
             let res = nix::unistd::read(self.pty.as_raw_fd(), &mut buf);
