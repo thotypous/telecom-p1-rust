@@ -204,12 +204,7 @@ where
             let bufsize = audio_in.len() / channels;
             let mut v21_in = vec![0.; bufsize];
             for (frame, dest) in audio_in.chunks(channels).zip(v21_in.iter_mut()) {
-                // aqui calculmos a média, mas talvez fosse melhor pegar só o primeiro canal?
-                let mut mean = 0.;
-                for sample in frame.iter() {
-                    mean += sample.to_sample::<f32>() / channels as f32;
-                }
-                *dest = mean;
+                *dest = frame.first().unwrap().to_sample::<f32>();
             }
 
             let mut uart_in = vec![1; bufsize];
