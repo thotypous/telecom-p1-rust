@@ -20,4 +20,5 @@ nix = { version = "0.28.0", features = ["term"] }
 [dev-dependencies]
 interp1d = "0.2.0"
 rand = "0.8.5"
+rand_distr = "0.4.3"
 rand_pcg = "0.3.1"
