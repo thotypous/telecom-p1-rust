@@ -4,6 +4,7 @@ use modem::{
     uart::{UartRx, UartTx},
     v21::{V21RX, V21TX},
 };
+use plotters::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_distr::{Distribution, Normal, Uniform};
 use rand_pcg;
@@ -136,6 +137,33 @@ fn test_v21(srate: usize, add_timing_offset: bool) {
         println!("EbN0 = {} dB, BER = {}", ebn0_db, ber);
         ber_ebn0_db[ebn0_db] = ber;
     }
+
+    const EPS: f32 = 1e-30;
+    let sync_spec = if add_timing_offset { "unsync" } else { "sync" };
+    let filename = format!("v21_{}_{}.svg", sync_spec, srate);
+    let caption = format!("V.21, {}, srate = {} Hz", sync_spec, srate);
+    let root = SVGBackend::new(&filename, (640, 480)).into_drawing_area();
+    root.fill(&WHITE).unwrap();
+    let mut chart = ChartBuilder::on(&root)
+        .caption(&caption, ("sans-serif", 16))
+        .set_label_area_size(LabelAreaPosition::Left, 60)
+        .set_label_area_size(LabelAreaPosition::Bottom, 40)
+        .build_cartesian_2d(0..MAX_EBN0_DB, (0f32..1f32).log_scale())
+        .unwrap();
+    chart
+        .configure_mesh()
+        .x_desc("Eb/N0 (dB)")
+        .y_desc("BER")
+        .draw()
+        .unwrap();
+    chart
+        .draw_series(LineSeries::new(
+            (0..).zip(ber_ebn0_db.iter()).map(|(a, b)| (a, *b + EPS)),
+            &BLACK,
+        ))
+        .unwrap();
+    root.present().unwrap();
+
     assert!(ber_ebn0_db[10] <= 1e-1);
     assert!(ber_ebn0_db[13] <= 1e-2);
     assert!(ber_ebn0_db[16] <= 1e-3);
