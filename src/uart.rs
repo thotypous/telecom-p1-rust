@@ -3,18 +3,22 @@ use std::collections::VecDeque;
 
 pub struct UartRx {
     // TODO: coloque outros atributos que você precisar aqui
+    samples_per_symbol: u32,
     to_pty: Sender<u8>,
 }
 
 impl UartRx {
-    pub fn new(to_pty: Sender<u8>) -> Self {
+    pub fn new(samples_per_symbol: u32, to_pty: Sender<u8>) -> Self {
         // TODO: inicialize seus novos atributos abaixo
-        UartRx { to_pty }
+        UartRx {
+            samples_per_symbol,
+            to_pty,
+        }
     }
 
     pub fn put_samples(&mut self, buffer: &[u8]) {
         // TODO: seu código aqui
-        self.to_pty.send(65).unwrap();
+        self.to_pty.send(65).unwrap();  // TODO: remova esta linha, é um exemplo de como mandar um byte para a pty
     }
 }
 

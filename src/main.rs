@@ -129,7 +129,7 @@ fn main() -> anyhow::Result<()> {
     let rx_samples_per_symbol = rx_srate / BAUD_RATE;
     let rx_speriod = 1. / rx_srate as f32;
 
-    let uart_rx = UartRx::new(uart_rx_to_pty);
+    let uart_rx = UartRx::new(rx_samples_per_symbol, uart_rx_to_pty);
     let v21_rx = V21RX::new(rx_speriod, rx_samples_per_symbol, rx_omega1, rx_omega0);
     let rx_stream = match rxcfg.sample_format() {
         cpal::SampleFormat::I8 => rx_run::<i8>(&rxdev, &rxcfg.into(), uart_rx, v21_rx),

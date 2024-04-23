@@ -59,7 +59,7 @@ fn test_uart(srate: u32, add_noise: bool, add_timing_offset: bool) {
     let (rx_sender, rx_receiver) = unbounded();
 
     let mut uart_tx = UartTx::new(samples_per_symbol as u32);
-    let mut uart_rx = UartRx::new(rx_sender);
+    let mut uart_rx = UartRx::new(samples_per_symbol as u32, rx_sender);
 
     let mut gen = rand_pcg::Pcg32::seed_from_u64(42);
     let d_idle_samples = Uniform::new(0, samples_per_symbol);
