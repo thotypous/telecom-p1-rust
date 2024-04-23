@@ -3,12 +3,12 @@ use std::collections::VecDeque;
 
 pub struct UartRx {
     // TODO: coloque outros atributos que você precisar aqui
-    samples_per_symbol: u32,
+    samples_per_symbol: usize,
     to_pty: Sender<u8>,
 }
 
 impl UartRx {
-    pub fn new(samples_per_symbol: u32, to_pty: Sender<u8>) -> Self {
+    pub fn new(samples_per_symbol: usize, to_pty: Sender<u8>) -> Self {
         // TODO: inicialize seus novos atributos abaixo
         UartRx {
             samples_per_symbol,
@@ -23,12 +23,12 @@ impl UartRx {
 }
 
 pub struct UartTx {
-    samples_per_symbol: u32,
+    samples_per_symbol: usize,
     samples: VecDeque<u8>,
 }
 
 impl UartTx {
-    pub fn new(samples_per_symbol: u32) -> Self {
+    pub fn new(samples_per_symbol: usize) -> Self {
         Self {
             samples_per_symbol,
             samples: VecDeque::new(),

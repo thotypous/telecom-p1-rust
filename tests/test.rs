@@ -11,7 +11,7 @@ use rand::{
 };
 use rand_pcg;
 
-const BAUD_RATE: u32 = 300;
+const BAUD_RATE: usize = 300;
 
 #[test]
 fn uart_trivial_48000() {
@@ -53,13 +53,13 @@ fn uart_noisy_unsync_44100() {
     test_uart(44100, true, true);
 }
 
-fn test_uart(srate: u32, add_noise: bool, add_timing_offset: bool) {
-    let samples_per_symbol = (srate / BAUD_RATE) as usize;
+fn test_uart(srate: usize, add_noise: bool, add_timing_offset: bool) {
+    let samples_per_symbol = srate / BAUD_RATE;
 
     let (rx_sender, rx_receiver) = unbounded();
 
-    let mut uart_tx = UartTx::new(samples_per_symbol as u32);
-    let mut uart_rx = UartRx::new(samples_per_symbol as u32, rx_sender);
+    let mut uart_tx = UartTx::new(samples_per_symbol);
+    let mut uart_rx = UartRx::new(samples_per_symbol, rx_sender);
 
     let mut gen = rand_pcg::Pcg32::seed_from_u64(42);
     let d_idle_samples = Uniform::new(0, samples_per_symbol);

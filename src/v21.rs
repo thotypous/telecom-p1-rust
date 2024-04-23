@@ -3,7 +3,7 @@ use std::{f32::consts::PI, ops::Rem};
 pub struct V21RX {
     // TODO: coloque outros atributos que você precisar aqui
     sampling_period: f32,
-    samples_per_symbol: u32,
+    samples_per_symbol: usize,
     omega_mark: f32,
     omega_space: f32,
 }
@@ -11,7 +11,7 @@ pub struct V21RX {
 impl V21RX {
     pub fn new(
         sampling_period: f32,
-        samples_per_symbol: u32,
+        samples_per_symbol: usize,
         omega_mark: f32,
         omega_space: f32,
     ) -> Self {

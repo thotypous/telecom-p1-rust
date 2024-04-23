@@ -17,7 +17,7 @@ use crossbeam_channel::unbounded;
 use std::sync::Mutex;
 use std::{f32::consts::PI, sync::Arc};
 
-const BAUD_RATE: u32 = 300;
+const BAUD_RATE: usize = 300;
 
 #[derive(Parser, Debug)]
 #[command(version, about = "Dial-up modem", long_about = None)]
@@ -80,7 +80,7 @@ fn main() -> anyhow::Result<()> {
         )
     };
 
-    let tx_srate = txcfg.sample_rate().0;
+    let tx_srate = txcfg.sample_rate().0 as usize;
     assert!(
         tx_srate % BAUD_RATE == 0,
         "TX sampling rate {} is not a multiple of the baud rate {}",
@@ -119,7 +119,7 @@ fn main() -> anyhow::Result<()> {
         sample_format => panic!("TX: Unsupported sample format '{sample_format}'"),
     }?;
 
-    let rx_srate = rxcfg.sample_rate().0;
+    let rx_srate = rxcfg.sample_rate().0 as usize;
     assert!(
         rx_srate % BAUD_RATE == 0,
         "RX sampling rate {} is not a multiple of the baud rate {}",
