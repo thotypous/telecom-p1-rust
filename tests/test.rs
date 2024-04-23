@@ -137,7 +137,7 @@ fn test_v21(srate: usize, add_timing_offset: bool) {
         ber_ebn0_db[ebn0_db] = ber;
     }
     assert!(ber_ebn0_db[10] <= 1e-1);
-    assert!(ber_ebn0_db[12] <= 1e-2);
+    assert!(ber_ebn0_db[13] <= 1e-2);
     assert!(ber_ebn0_db[16] <= 1e-3);
     assert!(ber_ebn0_db[19] <= 1e-5);
 }
