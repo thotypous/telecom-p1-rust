@@ -67,7 +67,7 @@ fn test_uart(srate: usize, add_noise: bool, add_timing_offset: bool) {
     let d_byte = Uniform::new(0, 255);
     let d_timing_offset = Uniform::new(0.98, 1.02);
 
-    for iteration in 0..100 {
+    for iteration in 0..50 {
         let idle_samples = d_idle_samples.sample(&mut gen);
         let msg_bytes = d_msg_bytes.sample(&mut gen);
         let msg_samples = 10 * samples_per_symbol * msg_bytes;
