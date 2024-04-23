@@ -1,9 +1,6 @@
 use anyhow;
-use std::{
-    mem::zeroed,
-    ptr::null_mut,
-    sync::mpsc::{Receiver, Sender},
-};
+use crossbeam_channel::{Receiver, Sender};
+use std::{mem::zeroed, ptr::null_mut};
 use winapi::{
     shared::{minwindef::DWORD, ntdef::HANDLE, winerror::ERROR_IO_PENDING},
     um::{

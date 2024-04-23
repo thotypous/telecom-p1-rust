@@ -13,7 +13,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     BuildStreamError, FromSample, SizedSample, Stream,
 };
-use std::sync::mpsc::channel;
+use crossbeam_channel::unbounded;
 use std::sync::Mutex;
 use std::{f32::consts::PI, sync::Arc};
 
@@ -90,8 +90,8 @@ fn main() -> anyhow::Result<()> {
     let tx_samples_per_symbol = tx_srate / BAUD_RATE;
     let tx_speriod = 1. / tx_srate as f32;
 
-    let (pty_to_uart_tx, uart_tx_from_pty) = channel();
-    let (uart_rx_to_pty, pty_from_uart_rx) = channel();
+    let (pty_to_uart_tx, uart_tx_from_pty) = unbounded();
+    let (uart_rx_to_pty, pty_from_uart_rx) = unbounded();
     let mut serial = Serial::open(&opt.serdev, pty_from_uart_rx, pty_to_uart_tx)?;
 
     let uart_tx = Arc::new(Mutex::new(UartTx::new(tx_samples_per_symbol)));

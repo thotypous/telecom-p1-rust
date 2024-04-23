@@ -1,9 +1,7 @@
 use anyhow;
+use crossbeam_channel::{Receiver, Sender};
 use nix;
-use std::{
-    os::fd::{AsRawFd, OwnedFd},
-    sync::mpsc::{Receiver, Sender},
-};
+use std::os::fd::{AsRawFd, OwnedFd};
 
 pub struct Serial {
     to_uart: Sender<u8>,

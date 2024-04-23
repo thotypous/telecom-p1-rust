@@ -1,4 +1,5 @@
-use std::{collections::VecDeque, sync::mpsc::Sender};
+use crossbeam_channel::Sender;
+use std::collections::VecDeque;
 
 pub struct UartRx {
     // TODO: coloque outros atributos que você precisar aqui
