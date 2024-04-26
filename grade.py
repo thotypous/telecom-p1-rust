@@ -21,5 +21,6 @@ for line in sys.stdin:
     m = re.match(r'^test (.*?) \.\.\. (ok|FAILED)', line)
     if m:
         test_name, test_result = m.groups()
-        results[test_name] = scores[test_name] if test_result == 'ok' else 0
+        if test_name in scores:
+            results[test_name] = scores[test_name] if test_result == 'ok' else 0
 print(json.dumps({'scores':results}))
